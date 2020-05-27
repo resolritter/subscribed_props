@@ -5,19 +5,26 @@ function counterMessageOf(renderCount, prepend = "") {
   return `${prepend}I've been called ${renderCount} times.`
 }
 
-// High-order component which sets up the subscription on behalf it child
-function bindOf(HookedComponent) {
-  return React.memo(
-    function(props) {
-      const [value, setValue] = useState(props.initialValue)
-      props.subscribe(props.uniqueId, setValue)
-
-      return <HookedComponent value={value} uniqueId={props.uniqueId} />
-    },
-    function alwaysSkipRenderFromProps() {
-      return true
-    },
-  )
+class Subscriber extends React.Component {
+  constructor(props) {
+    super(props)
+    const { subscribe, initialValue, uniqueId } = props
+    this.forwardedProps = {
+      value: initialValue,
+      uniqueId,
+    }
+    subscribe(uniqueId, (value) => {
+      this.forwardedProps = { value, uniqueId }
+      this.forceUpdate()
+    })
+  }
+  shouldComponentUpdate() {
+    return false
+  }
+  render() {
+    const { Component } = this.props
+    return <Component {...this.forwardedProps} />
+  }
 }
 
 const renderCounter = new Map()
@@ -51,23 +58,23 @@ function useBind(initialValue) {
   ]
 }
 
-const Tock = bindOf(function({ value, uniqueId }) {
+const Tock = function({ value, uniqueId }) {
   const renderCount = useRenderCounter(uniqueId)
   return (
     <div>
       <div>{counterMessageOf(renderCount, `Tock #${value} received. `)}</div>
     </div>
   )
-})
+}
 
-const Tick = bindOf(function({ value, uniqueId }) {
+const Tick = function({ value, uniqueId }) {
   const renderCount = useRenderCounter(uniqueId)
   return (
     <div>
       <div>{counterMessageOf(renderCount, `Tick #${value} received. `)}</div>
     </div>
   )
-})
+}
 
 let tickTock = 0
 function App() {
@@ -97,11 +104,26 @@ function App() {
   return (
     <div className="App">
       <b>Ticker (Child)</b>
-      <Tick subscribe={subscribeToTick} initialValue={tick} uniqueId={1} />
+      <Subscriber
+        subscribe={subscribeToTick}
+        initialValue={tick}
+        uniqueId={1}
+        Component={Tick}
+      />
       <b>Ticker (Child 2)</b>
-      <Tick subscribe={subscribeToTick} initialValue={tick} uniqueId={2} />
+      <Subscriber
+        subscribe={subscribeToTick}
+        initialValue={tick}
+        uniqueId={2}
+        Component={Tick}
+      />
       <b>Tocker (Child)</b>
-      <Tock subscribe={subscribeToTock} initialValue={tick} uniqueId={3} />
+      <Subscriber
+        subscribe={subscribeToTock}
+        initialValue={tock}
+        uniqueId={3}
+        Component={Tock}
+      />
       <b>Parent</b>
       <br />
       {counterMessageOf(renderCount)}
@@ -113,11 +135,6 @@ function App() {
           on all the children.
         </li>
         <li>Multiple children depending on the same "prop".</li>
-        <li>
-          Although skipping renders is also possible with{" "}
-          <code>componentDidUpdate</code> on class components, it'd mean losing
-          the ability to use hooks directly in the child.
-        </li>
       </ul>
     </div>
   )
