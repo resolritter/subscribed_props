@@ -22,14 +22,16 @@ occasion, it sometimes isn't
 
 - For example, when you have a component which interacts with live data coming
   at a fast rate from the outside; every time data streams in, even though the
-  children might not care, they'd still re-render a lot due to the way props
-  interact with functional components
+  children might not care, they'd still re-render a lot
 
 - For example, when some part of the UI needs to change in relation to another;
   think of having a Parent which hosts a Table and a Summary which changes
   according to the data in the table. If the Summary has to change due to some
   setting in the Parent, that means the Table also has to incur an update, which
   is potentially costly.
+
+- It's also worth noting that, just be virtue of using a hook, the render
+  functions will be triggered two times.
 
 Finally, for the sake of dealing with this incovenience of "render
 wastefulness", the code here aims to show a way in which **functional** parent
