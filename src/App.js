@@ -9,21 +9,27 @@ let subscriptionCount = 0
 // High-order component which sets up the subscription on behalf it child
 function makeSubscriber(PureComponent) {
   return React.memo(
-    function({ subscribe, initialValue }) {
+    function ({ subscribe, initialValue }) {
       const [uniqueId, setUniqueId] = useState()
       const [value, setValue] = useState(initialValue)
       useEffect(
-        function() {
+        function () {
           const uniqueId = ++subscriptionCount
           setUniqueId(uniqueId)
-          subscribe(uniqueId, setValue)
+          return subscribe(uniqueId, setValue)
         },
+        // `useSubscriber` guarantees `subscribe` doesn't ever change
         [subscribe],
       )
 
-      return uniqueId ? (
-        <PureComponent value={value} uniqueId={uniqueId} />
-      ) : null
+      // `PureComponent` doesn't need to be memoized because the current set of
+      // hooks makes the props only be updated when relevant already; this
+      // invariant should be maintained
+      return uniqueId
+        ? (
+          <PureComponent value={value} uniqueId={uniqueId} />
+        )
+        : null
     },
     function alwaysSkipRenderFromProps() {
       return true
@@ -39,6 +45,8 @@ function bumpRenderCount(uniqueId) {
 }
 
 function useSubscription(initialValue) {
+  // instead of useState, if the parent only hosts the values but doesn't need
+  // to read it, this could be useRef as well
   const [value, setValue] = useState(initialValue)
   // `Map` is used instead of an object because it provides dynamic lookup _on
   // demand_, as opposed to an object, where its value would be captured by the
@@ -46,36 +54,40 @@ function useSubscription(initialValue) {
   // easily be refreshed without needing to resubscribe - their value is always
   // looked up dynamically, thus it can be updated at any point.
   const listeners = useRef(new Map())
-  const bind = useRef(function(key, notificationCallback) {
+  // This is wrapped in useRef so that children can depend on its value without
+  // triggering the subscription effect, which should only happen once
+  const subscribe = useRef(function (key, notificationCallback) {
     listeners.current.set(key, notificationCallback)
+
+    return function unsubscribe() {
+      listeners.current.remove(key)
+    }
   })
 
   return [
     value,
     function notifyAndSet(newValue) {
-      listeners.current.forEach(function(notify) {
+      listeners.current.forEach(function (notify) {
         notify(newValue)
       })
       setValue(newValue)
     },
-    bind.current,
+    subscribe.current,
   ]
 }
 
-const Tock = makeSubscriber(function({ value, uniqueId }) {
-  const renderCount = bumpRenderCount(uniqueId)
+const Tock = makeSubscriber(function ({ value, uniqueId }) {
   return (
     <div>
-      <div>{makeCounterMessage(renderCount, `Tock #${value} received. `)}</div>
+      <div>{makeCounterMessage(bumpRenderCount(uniqueId), `Tock #${value} received. `)}</div>
     </div>
   )
 })
 
-const Tick = makeSubscriber(function({ value, uniqueId }) {
-  const renderCount = bumpRenderCount(uniqueId)
+const Tick = makeSubscriber(function ({ value, uniqueId }) {
   return (
     <div>
-      <div>{makeCounterMessage(renderCount, `Tick #${value} received. `)}</div>
+      <div>{makeCounterMessage(bumpRenderCount(uniqueId), `Tick #${value} received. `)}</div>
     </div>
   )
 })
@@ -90,8 +102,8 @@ function App() {
   // This would otherwise cause the whole tree to be re-rendered, but
   // since tick and tock are totally disconnected, that isn't very convenient.
   useEffect(
-    function() {
-      setTimeout(function() {
+    function () {
+      setTimeout(function () {
         tickTock++
         if (tickTock % 2) {
           setTock(tock + 1)
@@ -120,14 +132,13 @@ function App() {
       <p style={{ marginBottom: 0 }}>The example above showcases:</p>
       <ul style={{ listStyle: "inside", margin: 0 }}>
         <li>
-          How a re-render on a parent component is <b>not</b> triggering updates
-          on all the children.
+          How a re-render on a parent component is <b>not</b> triggering updates on all the children.
         </li>
         <li>Multiple children depending on the same "prop".</li>
         <li>
           Although skipping renders is also possible with{" "}
-          <code>componentDidUpdate</code> on class components, it'd mean losing
-          the ability to use hooks directly in the child.
+          <code>componentDidUpdate</code>
+          on class components, it'd mean losing the ability to use hooks directly in the child.
         </li>
       </ul>
     </div>
