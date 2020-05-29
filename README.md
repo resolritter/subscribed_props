@@ -31,13 +31,21 @@ occasion, it sometimes isn't
   is potentially costly.
 
 - It's also worth noting that, just be virtue of using a hook, the render
-  functions will be triggered two times.
+  functions will be triggered at least two times (this is related to the
+  pre-commit phases, which you can read more at the **Linked Resources**).
 
 Finally, for the sake of dealing with this incovenience of "render
 wastefulness", the code here aims to show a way in which **functional** parent
 and children components can still be communicated of changes through a simple
 subscription model, which goes against the "update through props" philosophy of
 React.
+
+## Linked resources
+
+- [React Hooks - Understanding Component Re-renders](https://medium.com/@guptagaruda/react-hooks-understanding-component-re-renders-9708ddee9928)
+- [Unnecessary re-renders](https://kentcdodds.com/blog/fix-the-slow-render-before-you-fix-the-re-render#unnecessary-re-renders)
+- [Flarnie Marchan - Ready for Concurrent Mode?](https://www.youtube.com/watch?v=V1Ly-8Z1wQA),
+  more specifically at 15:00 time mark
 
 ## Available Scripts
 
